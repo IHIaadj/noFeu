@@ -8,4 +8,5 @@ class Anomalie extends Model
 {
     //
     protected $guarded=["id"];
+    protected $table="ANOMALIES";
 }

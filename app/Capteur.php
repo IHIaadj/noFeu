@@ -8,4 +8,5 @@ class Capteur extends Model
 {
     //
     protected $guarded=["id"];
+    protected $table="T_CAPTEURS";
 }
