@@ -14,3 +14,5 @@
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get("fires","showFiresHistory@FiresHistoryController")->name("fire-history");
