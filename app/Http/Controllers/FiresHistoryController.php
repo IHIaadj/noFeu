@@ -63,6 +63,6 @@ class FiresHistoryController extends Controller
             }
         }
         $result=$result->get();
-        dd($result);
+        return view("fires.ajaxFiresListSearch",["fires"=>$result]);
     }
 }
