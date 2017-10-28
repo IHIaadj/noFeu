@@ -16,3 +16,4 @@ Route::get('/', function () {
 });
 
 Route::get("fires","FiresHistoryController@showFiresHistory")->name("fire-history");
+Route::post("ajaxFiresFilter","FiresHistoryController@ajaxFireFilter")->name('ajaxFiresFilter');
