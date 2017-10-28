@@ -129,7 +129,50 @@ class BinaryHeap
             $this->heap[]=["capteur"=>$item[0],"distance"=>$item[1]];
         }
     }
+
+    public static function vincentyGreatCircleDistance(
+        $latitudeFrom, $longitudeFrom, $latitudeTo, $longitudeTo, $earthRadius = 6371000)
+    {
+        // convert from degrees to radians
+        $latFrom = deg2rad($latitudeFrom);
+        $lonFrom = deg2rad($longitudeFrom);
+        $latTo = deg2rad($latitudeTo);
+        $lonTo = deg2rad($longitudeTo);
+
+        $lonDelta = $lonTo - $lonFrom;
+        $a = pow(cos($latTo) * sin($lonDelta), 2) +
+            pow(cos($latFrom) * sin($latTo) - sin($latFrom) * cos($latTo) * cos($lonDelta), 2);
+        $b = sin($latFrom) * sin($latTo) + cos($latFrom) * cos($latTo) * cos($lonDelta);
+
+        $angle = atan2(sqrt($a), $b);
+        return $angle * $earthRadius;
+    }
+
+    public static function getFireClusterAroundSensor($capteurID,$retour){
+        $MIN_DISTANCE_BETWEEN_2_SENSORS=100;
+        $MAX_DISTANCE_BETWEEN_2_SENSORS=500;
+        $treated=array();
+        $fireCluster=array();
+        $region="CAPTEUR INEXISTANT";
+        $capteur=\App\Capteur::find($capteurID);
+        if($capteur)
+            $region=$capteur->REGION;
+        else
+            dd();
+        $heap=new BinaryHeap();
+        $heap->stringToHeap($capteur->HEAP_REG_DISTANCES);
+        while(!$heap->isEmpty()){
+            $capt=$heap->extract();
+            if($capt['distance']<$MAX_DISTANCE_BETWEEN_2_SENSORS){
+                \App\Fire::where("ID_CAPTEUR","=",$capt['capteur']);
+            }
+
+        }
+
+
+    }
 }
+
 
 $heap= new BinaryHeap();
 $heap->insert(["capteur"=>2,"distance"=>13]);
