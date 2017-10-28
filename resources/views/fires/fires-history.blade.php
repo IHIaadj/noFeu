@@ -63,36 +63,34 @@
                 <th>DETAILS</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="fires-list">
+        @php
+            $parity=false;
+        @endphp
+        @foreach($fires as $fire)
             @php
-                $parity=false;
+                $parity=!$parity;
+                //TROUVER LE NOM DE LA REGION
+                $region="CAPTEUR INEXISTANT";
+                $capteur=\App\Capteur::find($fire->ID_CAPTEUR);
+                if($capteur)
+                    $region=$capteur->REGION;
             @endphp
-            @foreach($fires as $fire)
-                @php
-                    $parity=!$parity;
-                    //TROUVER LE NOM DE LA REGION
-                    $region="CAPTEUR INEXISTANT";
-                    $capteur=\App\Capteur::find($fire->ID_CAPTEUR);
-                    if($capteur)
-                        $region=$capteur->REGION;
-                @endphp
-                <!-- LIEN POUR LES DETAILS DU FEU -->
-                <tr class="{{$parity? "btn-primary": ""}}">
-                    <th scope="row">{{$fire->ID_CAPTEUR}}</th>
-                    <td>{{$region}}</td>
-                    <td>{{$fire->AVG_TEMP}}</td>
-                    <td>{{$fire->STARTING}}</td>
-                    <td>{{($fire->ENDING)?($fire->ENDING):"FEU EN EVOLUTION"}}</td>
-                    <td style="position:relative;">
-                        <a href="" class="btn btn-info"><i class="glyphicon glyphicon-book"></i></a>
-                    </td>
-                </tr>
+            <!-- LIEN POUR LES DETAILS DU FEU -->
+            <tr class="{{$parity? "btn-primary": ""}}">
+                <th scope="row">{{$fire->ID_CAPTEUR}}</th>
+                <td>{{$region}}</td>
+                <td>{{$fire->AVG_TEMP}}</td>
+                <td>{{$fire->STARTING}}</td>
+                <td>{{($fire->ENDING)?($fire->ENDING):"FEU EN EVOLUTION"}}</td>
+                <td style="position:relative;">
+                    <a href="" class="btn btn-info"><i class="glyphicon glyphicon-book"></i></a>
+                </td>
+            </tr>
 
-            @endforeach
-
+        @endforeach
         </tbody>
     </table>
-    <div id="returned"></div>
     <script>
         //Pour le choix du type de la recherche
         $(".rechT").on("change",function () {
@@ -122,9 +120,18 @@
                 url: '{{route('ajaxFiresFilter')}}',
                 type: 'post',
                 success: function(data) {
-                    $("#returned").html(data);
+                    $("#fires-list").html(data);
                 }
             });
         }
+         $("#region").on("change",refreshSearch);
+         $("#capteur").on("input",refreshSearch);
+
+         $("#operation-compare").on("change",refreshSearch);
+         $("#temperature-compare").on("input",refreshSearch);
+
+         $("#compare-date").on("change",refreshSearch);
+         $("#beg-time").on("input",refreshSearch);
+         $("#end-time").on("input",refreshSearch);
     </script>
 @endsection
