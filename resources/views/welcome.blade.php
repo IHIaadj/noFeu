@@ -1,95 +1,173 @@
-<!doctype html>
-<html lang="{{ app()->getLocale() }}">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
 
-        <title>Laravel</title>
+        #map {
+            height: 100%;
+            width: 85%;
+        }
 
-        <!-- Fonts -->
-        <link href="https://fonts.googleapis.com/css?family=Raleway:100,600" rel="stylesheet" type="text/css">
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #voletMenu {
+            background:darkgray;
+            color: black;
+            height: 100%;
+            width:15%;
 
-        <!-- Styles -->
-        <style>
-            html, body {
-                background-color: #fff;
-                color: #636b6f;
-                font-family: 'Raleway', sans-serif;
-                font-weight: 100;
-                height: 100vh;
-                margin: 0;
-            }
+        }
+        #floating-panel {
+            position: absolute;
+            top: 10px;
+            left: 25%;
+            z-index: 5;
+            background-color: #fff;
+            padding: 5px;
+            border: 1px solid #999;
+            text-align: center;
+            font-family: 'Roboto','sans-serif';
+            line-height: 30px;
+            padding-left: 10px;
+        }
 
-            .full-height {
-                height: 100vh;
-            }
 
-            .flex-center {
-                align-items: center;
-                display: flex;
-                justify-content: center;
-            }
+    </style>
+</head>
+<body>
 
-            .position-ref {
-                position: relative;
-            }
+<div id="map" style="float: left;"></div>
+<div id="voletMenu"style="float: right;">Volet Menu</div>
+<div id="floating-panel">
+    <button onclick="toggleSmokeMarkers()">Toggle Smoke</button>
+    <button onclick="toggleTemperatureMarkers()">Toggle Temperature</button>
+    <button onclick="toggleHumidityMarkers()">Toggle Humidity</button>
+    <button onclick="enableMarkers()">Markers</button>
+</div>
 
-            .top-right {
-                position: absolute;
-                right: 10px;
-                top: 18px;
-            }
+<script>
 
-            .content {
-                text-align: center;
-            }
+    var map;
+    var markersTable=[];
+    /**
+     * Initialize the map according to Google Map API JavaScript Models
+     * This function is called once data is loaded at the beginning according to the callback specification
+     */
+    function initMap() {
 
-            .title {
-                font-size: 84px;
-            }
+        var mapCenter= new google.maps.LatLng(34.946,3.244);
 
-            .links > a {
-                color: #636b6f;
-                padding: 0 25px;
-                font-size: 12px;
-                font-weight: 600;
-                letter-spacing: .1rem;
-                text-decoration: none;
-                text-transform: uppercase;
-            }
+        //création de la map
+        map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 7,
+            center: mapCenter,
+            mapTypeId: 'terrain'
+        });
 
-            .m-b-md {
-                margin-bottom: 30px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="flex-center position-ref full-height">
-            @if (Route::has('login'))
-                <div class="top-right links">
-                    @auth
-                        <a href="{{ url('/home') }}">Home</a>
-                    @else
-                        <a href="{{ route('login') }}">Login</a>
-                        <a href="{{ route('register') }}">Register</a>
-                    @endauth
-                </div>
-            @endif
+        //table issue de la BDD où chaque ligne représente un capteur et son état actuel
+        var capteursTable = {!! json_encode($Capteurs_Join_Events_id) !!};
 
-            <div class="content">
-                <div class="title m-b-md">
-                    Laravel
-                </div>
+        //pour chaque ligne du capteur on ajoute un marker pour notre map
+        capteursTable.forEach(function (capteur) {
+            //création d'un capteur
+            createMarker(capteur);
+        });
 
-                <div class="links">
-                    <a href="https://laravel.com/docs">Documentation</a>
-                    <a href="https://laracasts.com">Laracasts</a>
-                    <a href="https://laravel-news.com">News</a>
-                    <a href="https://forge.laravel.com">Forge</a>
-                    <a href="https://github.com/laravel/laravel">GitHub</a>
-                </div>
-            </div>
-        </div>
-    </body>
+    }
+
+
+
+
+
+</script>
+
+<script async defer title="Google Map API"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB3R7bzKOXmqJWdiKgbhtfa_DMQQ3PL1Oo&libraries=visualization&callback=initMap">
+</script>
+
+<script title="Marker Functions">
+    /**
+     * Toggle the Humidity Markers
+     */
+    function toggleHumidityMarkers()
+    {
+        markersTable.forEach(function (marker) {
+            marker.title=marker.title+'\n Humidity'; // will be changed to the icon marker
+            marker.setMap(map);
+        });
+    }
+
+    /**
+     * Toggle the Smoke Markers
+     */
+    function toggleSmokeMarkers()
+    {
+        markersTable.forEach(function (marker) {
+            marker.title=marker.title+'\n Smoke'; // will be changed to the icon marker
+            marker.setMap(map);
+        });
+
+    }
+
+    /**
+     * Toggle the Temperature Markers
+     */
+    function toggleTemperatureMarkers()
+    {
+        markersTable.forEach(function (marker) {
+            marker.title=marker.title+'\n Temperature';
+            marker.setMap(map);
+        });
+
+    }
+
+
+    /**
+     * Enable/Disable Markers on the map
+     */
+    function enableMarkers(){
+        markersTable.forEach(function (marker) {
+            marker.setMap(marker.getMap() ? null : map);
+        })
+    }
+
+    /**
+     * Create a marker representing the variable "capteur" and add it to the markersTable (global variable)
+     * @param capteur représente un capteur avec tous ses états actuels
+     */
+    function createMarker(capteur) {
+
+        var marker = new google.maps.Marker({
+            position: {lat: capteur["LAT"], lng: capteur["LON"]},
+            opacity:0.5,
+            title :'ID : '+capteur["id"]+'\nRegion : '+capteur["REGION"]
+
+        });
+
+        marker.addListener('click',function() {
+
+            var infoWindowMarker =  new google.maps.InfoWindow({
+                content: 'ID : '+capteur["id"]+
+                '<br>Region : '+capteur["REGION"]+
+                '<br>Temperature : '+capteur["TEMPERATURE"]+
+                '<br>Humidité : '+capteur["HUMIDITE"]+
+                '<br>Fumée : '+capteur["SMOKE"]
+            });
+
+            infoWindowMarker.open(map,this);
+
+        });
+
+        markersTable.push(marker);
+
+
+    }
+
+
+</script>
+
+</body>
 </html>
