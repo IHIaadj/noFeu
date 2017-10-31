@@ -39,11 +39,12 @@
 </head>
 <body>
 
+
 <div id="map" style="float: left;"></div>
 <div id="voletMenu" style="float: right;">Volet Menu</div>
 <div id="floating-panel">
     <button onclick="toggleHeatmap()">Toggle Heatmap</button>
-    <button onclick="toggleSmokeMarkers()">Toggle Smoke</button>
+    <button onclick="toggleSmokeMarkers()">Toggle Fire</button>
     <button onclick="toggleTemperatureMarkers()">Toggle Temperature</button>
     <button onclick="toggleHumidityMarkers()">Toggle Humidity</button>
     <button onclick="enableMarkers()">Markers</button>
@@ -51,9 +52,6 @@
 
 <script title="Initialize">
 
-    var map;
-    var heatMap;
-    var markersTable=[];
 
     //table issue de la BDD où chaque ligne représente un capteur et son état actuel
     var capteursTable = {!! json_encode($Capteurs_Join_Events_id) !!};
@@ -70,13 +68,26 @@
 </script>
 
 <script title="Marker_Functions">
+
+    var iconsUrls={
+        blue:"{{asset('storage/data/circle-icons/circle-blue.png')}}",
+        green:"{{asset('storage/data/circle-icons/circle-green.png')}}",
+        grey:"{{asset('storage/data/circle-icons/circle-grey.png')}}",
+        red:"{{asset('storage/data/circle-icons/circle-red.png')}}",
+        orange:"{{asset('storage/data/circle-icons/circle-orange.png')}}"
+    };
+
+    var heatMap;
+    var markersTable=[];
+
     /**
      * Toggle the Humidity Markers
      */
     function toggleHumidityMarkers()
     {
         markersTable.forEach(function (marker) {
-            marker.label=marker.capteur.humidite+' %'; // will be changed to the icon marker
+            marker.label=marker.capteur.humidite+' %';
+            marker.icon.url=iconsUrls.blue;
             marker.setMap(map);
         });
     }
@@ -88,10 +99,10 @@
     {
         markersTable.forEach(function (marker) {
 
-            var smokeLabel= "";
-            if(marker.capteur.smoke == 1) smokeLabel = "Smoke";
+            if(marker.capteur.smoke == 1) marker.icon.url=iconsUrls.red;
+            else marker.icon.url=iconsUrls.grey;
 
-            marker.label=smokeLabel;// will be changed to the icon marker
+            marker.label=marker.capteur.temperature+" °C";
             marker.setMap(map);
         });
 
@@ -103,7 +114,12 @@
     function toggleTemperatureMarkers()
     {
         markersTable.forEach(function (marker) {
-            marker.label=marker.capteur.temperature+" °C";// will be changed to the icon marker
+            marker.label=marker.capteur.temperature+" °C";
+
+            if(marker.capteur.temperature>60) marker.icon.url=iconsUrls.red;
+            else if(marker.capteur.temperature>45) marker.icon.url=iconsUrls.orange;
+            else marker.icon.url=iconsUrls.green;
+
             marker.setMap(map);
         });
 
@@ -134,9 +150,10 @@
 
         var marker = new google.maps.Marker({
             position: {lat: capteur["LAT"], lng: capteur["LON"]},
-            opacity:0.5,
+            opacity:0.8,
             title :'ID : '+capteur["id"]+'\nRegion : '+capteur["REGION"],
-            label : '',
+            label : capteur["id"].toString(),
+            icon : createDefaultIcon(),
             capteur : {
                 id : capteur["id"],
                 region :capteur["REGION"],
@@ -165,10 +182,28 @@
 
     }
 
+    /**
+     * Create a default icon for a marker with grey cercle
+     * @returns {   {url: string, size: google.maps.Size, origin: Point, anchor: Point} } the Icon
+    */
+    function createDefaultIcon()
+    {
+        return  {
+            url: iconsUrls.grey,
+            size: new google.maps.Size(36, 36),
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(18, 18)
+        };
+
+    }
+
 
 </script>
 
 <script title="Map&Markers_Funcitons">
+
+    var map;
+
 
     /**
      * Initialize the map according to Google Map API JavaScript Models
