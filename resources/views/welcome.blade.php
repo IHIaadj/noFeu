@@ -123,7 +123,7 @@
      * Toggle HeatMap : a map showing temperature in colors (red,yellow,green) using the Visualization Library.
      */
     function toggleHeatmap() {
-        heatmap.setMap(heatmap.getMap() ? null : map);
+        heatMap.setMap(heatmap.getMap() ? null : map);
     }
 
     /**
