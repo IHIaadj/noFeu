@@ -52,7 +52,7 @@
 <script title="Initialize">
 
     var map;
-    var heatmap;
+    var heatMap;
     var markersTable=[];
 
     //table issue de la BDD où chaque ligne représente un capteur et son état actuel
@@ -192,16 +192,42 @@
     }
 
     /**
-     * Creating the HeatMap from a markers Table to show temperature in colors Based on Visualization Library
-     * Should be called after creating markers
+     * Creating the HeatMap to show temperature in colors Based on Visualization Library
      */
     function createHeatMap()
     {
-        heatmap = new google.maps.visualization.HeatmapLayer({
-            data: markersTable.map(function(value,index) { return value['position']; }),
-            map: map
+        //HeatMapData containing (location,weight)
+        var heatMapData=[];
+
+        //Populating HeatMapData with Heatpoints(location,weight)
+        capteursTable.forEach(function (capteur) {
+            var heatPoint= {
+                location : new google.maps.LatLng(capteur['LAT'],capteur['LON']),
+                weight : heatPointTemperature(capteur['TEMPERATURE'])
+            };
+
+        heatMapData.push(heatPoint);
         });
+
+        //Setting the HeatMap on the Map
+        heatMap = new google.maps.visualization.HeatmapLayer({
+            data: heatMapData,//markersTable.map(function(value,index) { return value['position']; }),
+            map: map,
+            dissipating: true,
+            radius : 50
+        });
+
+        //A local function used to determine the weight of HeatPoints
+        function heatPointTemperature(temperature) {
+            var toReturn=0;
+            if(temperature>55) toReturn=5;
+            else toReturn=0.5;
+            return toReturn;
+        }
+
     }
+
+
 </script>
 </body>
 </html>
