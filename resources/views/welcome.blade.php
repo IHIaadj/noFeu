@@ -69,10 +69,6 @@
 
 </script>
 
-<script async defer title="Google_Map_API"
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB3R7bzKOXmqJWdiKgbhtfa_DMQQ3PL1Oo&libraries=visualization&callback=initialize">
-</script>
-
 <script title="Marker_Functions">
     /**
      * Toggle the Humidity Markers
@@ -80,7 +76,7 @@
     function toggleHumidityMarkers()
     {
         markersTable.forEach(function (marker) {
-            marker.title=marker.title+'\n Humidity'; // will be changed to the icon marker
+            marker.label=marker.capteur.humidite+' %'; // will be changed to the icon marker
             marker.setMap(map);
         });
     }
@@ -91,7 +87,11 @@
     function toggleSmokeMarkers()
     {
         markersTable.forEach(function (marker) {
-            marker.title=marker.title+'\n Smoke'; // will be changed to the icon marker
+
+            var smokeLabel= "";
+            if(marker.capteur.smoke == 1) smokeLabel = "Smoke";
+
+            marker.label=smokeLabel;// will be changed to the icon marker
             marker.setMap(map);
         });
 
@@ -103,7 +103,7 @@
     function toggleTemperatureMarkers()
     {
         markersTable.forEach(function (marker) {
-            marker.title=marker.title+'\n Temperature';
+            marker.label=marker.capteur.temperature+" °C";// will be changed to the icon marker
             marker.setMap(map);
         });
 
@@ -135,18 +135,25 @@
         var marker = new google.maps.Marker({
             position: {lat: capteur["LAT"], lng: capteur["LON"]},
             opacity:0.5,
-            title :'ID : '+capteur["id"]+'\nRegion : '+capteur["REGION"]
-
+            title :'ID : '+capteur["id"]+'\nRegion : '+capteur["REGION"],
+            label : '',
+            capteur : {
+                id : capteur["id"],
+                region :capteur["REGION"],
+                temperature : capteur["TEMPERATURE"],
+                humidite :capteur["HUMIDITE"],
+                smoke :capteur["SMOKE"]
+            }
         });
 
         marker.addListener('click',function() {
 
             var infoWindowMarker =  new google.maps.InfoWindow({
-                content: 'ID : '+capteur["id"]+
-                '<br>Region : '+capteur["REGION"]+
-                '<br>Temperature : '+capteur["TEMPERATURE"]+
-                '<br>Humidité : '+capteur["HUMIDITE"]+
-                '<br>Fumée : '+capteur["SMOKE"]
+                content: 'ID : '+this.capteur.id+
+                '<br>Region : '+this.capteur.region+
+                '<br>Temperature : '+this.capteur.temperature+
+                '<br>Humidité : '+this.capteur.humidite+
+                '<br>Fumée : '+this.capteur.smoke
             });
 
             infoWindowMarker.open(map,this);
@@ -184,7 +191,7 @@
      */
     function createMarkers()
     {
-        //pour chaque ligne du capteur on ajoute un marker pour notre map
+        //pour chaque ligne du capteur on ajoute un marker pour map
         capteursTable.forEach(function (capteur) {
             //création d'un capteur
             createMarker(capteur);
@@ -192,29 +199,29 @@
     }
 
     /**
-     * Creating the HeatMap to show temperature in colors Based on Visualization Library
+     * Creating the HeatMap from markersTable to show temperature in colors Based on Visualization Library
+     * Should be called after creating markers
      */
     function createHeatMap()
     {
-        //HeatMapData containing (location,weight)
-        var heatMapData=[];
+        if(markersTable.length!=0){
+            heatMap = new google.maps.visualization.HeatmapLayer({
+                data: markersTable.map(function(value,index) {
+                    var heatPoint = {
+                        location : value.position,
+                        weight : heatPointTemperature(value.capteur.temperature)
+                    };
 
-        //Populating HeatMapData with Heatpoints(location,weight)
-        capteursTable.forEach(function (capteur) {
-            var heatPoint= {
-                location : new google.maps.LatLng(capteur['LAT'],capteur['LON']),
-                weight : heatPointTemperature(capteur['TEMPERATURE'])
-            };
+                    return heatPoint;
+                }),
 
-        heatMapData.push(heatPoint);
-        });
-
-        //Setting the HeatMap on the Map
-        heatMap = new google.maps.visualization.HeatmapLayer({
-            data: heatMapData,//markersTable.map(function(value,index) { return value['position']; }),
-            dissipating: true,
-            radius : 50
-        });
+                dissipating: true,
+                radius : 50
+            });
+        }
+        else{
+            alert("MarkersMap not created");
+        }
 
         //A local function used to determine the weight of HeatPoints
         function heatPointTemperature(temperature) {
@@ -228,5 +235,10 @@
 
 
 </script>
+
+<script async defer title="Google_Map_API"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB3R7bzKOXmqJWdiKgbhtfa_DMQQ3PL1Oo&libraries=visualization&callback=initialize">
+</script>
+
 </body>
 </html>
