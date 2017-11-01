@@ -13,3 +13,5 @@
 
 
 Route::get('/', "CapteurController@index")->name("getCapteurs");
+
+Route::post('/update', "CapteurController@updateMarkers")->name("updateMarkers");

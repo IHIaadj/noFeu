@@ -49,25 +49,10 @@
     <button onclick="toggleHumidityMarkers()">Toggle Humidity</button>
     <button onclick="enableMarkers()">Markers</button>
 </div>
-
-<script title="Initialize">
-
+<script title="Variables_Constants">
 
     //table issue de la BDD où chaque ligne représente un capteur et son état actuel
     var capteursTable = {!! json_encode($Capteurs_Join_Events_id) !!};
-
-    function initialize()
-    {
-        createMap();
-        createMarkers();
-        createHeatMap();
-    }
-
-
-
-</script>
-
-<script title="Marker_Functions">
 
     var iconsUrls={
         blue:"{{asset('storage/data/circle-icons/circle-blue.png')}}",
@@ -78,69 +63,25 @@
     };
 
     var heatMap;
+    var heatMapData=[];
     var markersTable=[];
+    var map;
+    const UPDATE_INTERVAL=3000; //3 secs
 
-    /**
-     * Toggle the Humidity Markers
-     */
-    function toggleHumidityMarkers()
+</script>
+
+<script title="Initialize">
+
+   function initialize()
     {
-        markersTable.forEach(function (marker) {
-            marker.label=marker.capteur.humidite+' %';
-            marker.icon.url=iconsUrls.blue;
-            marker.setMap(map);
-        });
+        createMap();
+        createMarkers();
+        createHeatMap();
     }
 
-    /**
-     * Toggle the Smoke Markers
-     */
-    function toggleSmokeMarkers()
-    {
-        markersTable.forEach(function (marker) {
+</script>
 
-            if(marker.capteur.smoke == 1) marker.icon.url=iconsUrls.red;
-            else marker.icon.url=iconsUrls.grey;
-
-            marker.label=marker.capteur.temperature+" °C";
-            marker.setMap(map);
-        });
-
-    }
-
-    /**
-     * Toggle the Temperature Markers
-     */
-    function toggleTemperatureMarkers()
-    {
-        markersTable.forEach(function (marker) {
-            marker.label=marker.capteur.temperature+" °C";
-
-            if(marker.capteur.temperature>60) marker.icon.url=iconsUrls.red;
-            else if(marker.capteur.temperature>45) marker.icon.url=iconsUrls.orange;
-            else marker.icon.url=iconsUrls.green;
-
-            marker.setMap(map);
-        });
-
-    }
-
-
-    /**
-     * Enable/Disable Markers on the map
-     */
-    function enableMarkers(){
-        markersTable.forEach(function (marker) {
-            marker.setMap(marker.getMap() ? null : map);
-        })
-    }
-
-    /**
-     * Toggle HeatMap : a map showing temperature in colors (red,yellow,green) using the Visualization Library.
-     */
-    function toggleHeatmap() {
-        heatMap.setMap(heatMap.getMap() ? null : map);
-    }
+<script title="Marker_Functions">
 
     /**
      * Create a marker representing the variable "capteur" and add it to the markersTable (global variable)
@@ -156,17 +97,17 @@
             icon : createDefaultIcon(),
             capteur : {
                 id : capteur["id"],
-                region :capteur["REGION"],
-                temperature : capteur["TEMPERATURE"],
-                humidite :capteur["HUMIDITE"],
-                smoke :capteur["SMOKE"]
+                region : capteur["REGION"],
+                temperature : 0,
+                humidite :0,
+                smoke : 0
             }
         });
 
         marker.addListener('click',function() {
 
             var smokeString='';
-            if(this.capteur.smoke==1) smokeString="OUI"; else smokeString="NON";
+            if(this.capteur.smoke==0) smokeString="NON"; else smokeString="OUI";
 
             var infoWindowMarker =  new google.maps.InfoWindow({
                 content: 'ID : '+this.capteur.id+
@@ -181,33 +122,33 @@
 
         });
 
-        markersTable.push(marker);
+        //un genre de hachage
+        markersTable[marker.capteur.id]=marker;
 
+        markersTable.display='';
 
     }
+
+
 
     /**
-     * Create a default icon for a marker with grey cercle
-     * @returns {   {url: string, size: google.maps.Size, origin: Point, anchor: Point} } the Icon
-    */
-    function createDefaultIcon()
-    {
-        return  {
-            url: iconsUrls.grey,
-            size: new google.maps.Size(36, 36),
-            origin: new google.maps.Point(0, 0),
-            anchor: new google.maps.Point(18, 18)
-        };
+     * update the marker.capteur fields with the recent features in capteur
+     * @param data represents a line in the EVENTS table in database
+     */
+    function  updateMarker(data) {
 
+        markersTable[data.ID_CAPTEUR].capteur.temperature = data.TEMPERATURE;
+        markersTable[data.ID_CAPTEUR].capteur.humidite = data.HUMIDITE;
+        markersTable[data.ID_CAPTEUR].capteur.smoke = data.SMOKE;
+        markersTable[data.ID_CAPTEUR].capteur.luminosite = data.LUMINOSITE;
     }
-
 
 </script>
 
 <script title="Map&Markers_Funcitons">
 
-    var map;
-
+    //update the markersTable from the DataBase
+    setInterval(updateMarkers, UPDATE_INTERVAL);
 
     /**
      * Initialize the map according to Google Map API JavaScript Models
@@ -237,6 +178,45 @@
         });
     }
 
+
+    /**
+     * updating the markers fields in marker.capteur according to the last change in the database using Ajax
+     */
+    function updateMarkers(){
+
+        var CSRF_TOKEN = $('meta[name="csrf-token"]').attr('content');
+
+        for (var i=0; i<capteursTable.length; i++){
+
+            var capteurID = capteursTable[i]["id"];
+
+            $.ajax({
+
+                url : "/update",
+                type : 'POST' ,
+                dataType : 'JSON',
+                data : {_token: CSRF_TOKEN, message:capteurID},
+
+                success : function(data){
+
+                    console.log(data);
+                    updateMarker(data);
+                },
+                error: function (data) {
+                    console.log('Error:', data);
+                }
+            });
+            updateMarkersDisplay(markersTable.display);
+            updateHeatMapData();
+            updateHeatMapDisplay();
+        }
+
+    }
+
+</script>
+
+<script title="HeatMap_Functions">
+
     /**
      * Creating the HeatMap from markersTable to show temperature in colors Based on Visualization Library
      * Should be called after creating markers
@@ -244,16 +224,21 @@
     function createHeatMap()
     {
         if(markersTable.length!=0){
+
+            //Creating the data of HeatMap as a MVCArray to bind the changings in updating
+            heatMapData= new google.maps.MVCArray(markersTable.map(function(value,index) {
+                var heatPoint = {
+                    location : value.position,
+                    weight : 1,
+                    id : value.capteur.id,
+                    displayed:'no'
+                };
+
+                return heatPoint;
+            }));
+
             heatMap = new google.maps.visualization.HeatmapLayer({
-                data: markersTable.map(function(value,index) {
-                    var heatPoint = {
-                        location : value.position,
-                        weight : heatPointTemperature(value.capteur.temperature)
-                    };
-
-                    return heatPoint;
-                }),
-
+                data: heatMapData,
                 dissipating: true,
                 radius : 50
             });
@@ -261,6 +246,19 @@
         else{
             alert("MarkersMap not created");
         }
+
+    }
+
+
+    /**
+     * Update the heatMapData weights (of heatPoints) according to the markersTable features
+     */
+    function updateHeatMapData() {
+
+        //iterating the MVCArray and changing the weight according to the markersTable Temperature
+        heatMapData.b.forEach(function (heatPoint) {
+            heatPoint.weight=heatPointTemperature(markersTable[heatPoint.id].capteur.temperature);
+        });
 
         //A local function used to determine the weight of HeatPoints
         function heatPointTemperature(temperature) {
@@ -272,12 +270,130 @@
 
     }
 
+</script>
+
+<script title="Display_Functions">
+
+    /**
+     * Toggle the Humidity Display Markers
+     */
+    function toggleHumidityMarkers()
+    {
+        markersTable.forEach(function (marker) {
+            marker.label=marker.capteur.humidite+' %';
+            marker.icon.url=iconsUrls.blue;
+            marker.setMap(map);
+        });
+
+        markersTable.display="humidityDisplayed";
+    }
+
+    /**
+     * Toggle the Smoke Display Markers
+     */
+    function toggleSmokeMarkers()
+    {
+        markersTable.forEach(function (marker) {
+
+            if(marker.capteur.smoke == 1) marker.icon.url=iconsUrls.red;
+            else marker.icon.url=iconsUrls.grey;
+            marker.label=marker.capteur.temperature+" °C";
+            marker.setMap(map);
+        });
+
+        markersTable.display="smokeDisplayed";
+
+    }
+
+    /**
+     * Toggle the Temperature Display Markers
+     */
+    function toggleTemperatureMarkers()
+    {
+        markersTable.forEach(function (marker) {
+            marker.label=marker.capteur.temperature+" °C";
+            if(marker.capteur.temperature>60) marker.icon.url=iconsUrls.red;
+            else if(marker.capteur.temperature>45) marker.icon.url=iconsUrls.orange;
+            else marker.icon.url=iconsUrls.green;
+
+            marker.setMap(map);
+        });
+
+        markersTable.display="temperatureDisplayed";
+    }
+
+
+    /**
+     * Enable/Disable Markers on the map
+     */
+    function enableMarkers(){
+        markersTable.forEach(function (marker) {
+            marker.setMap(marker.getMap() ? null : map);
+        });
+        markersTable.display='';
+    }
+
+    /**
+     * Toggle HeatMap : a map showing temperature in colors (red,yellow,green) using the Visualization Library.
+     */
+    function toggleHeatmap() {
+        heatMap.setMap(heatMap.getMap() ? null : map);
+        if(heatMap.getMap() == null)heatMap.displayed='no'; else heatMap.displayed='yes';
+    }
+
+    /**
+     * Create a default icon for a marker with grey cercle
+     * @returns {   {url: string, size: google.maps.Size, origin: Point, anchor: Point} } the Icon
+     */
+    function createDefaultIcon()
+    {
+        return  {
+            url: iconsUrls.grey,
+            size: new google.maps.Size(36, 36),
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(18, 18)
+        };
+
+    }
+
+    /**
+     * updating the display mode on the map (humidity,temperature,smoke) changing icons and labels
+     * By calling the appropriate function according to the current display
+     * @param markerDisplayed can be one of these strings (temperatureDisplayed,smokeDisplayed,humidityDisplayed)
+     */
+    function updateMarkersDisplay(markerDisplayed) {
+
+        switch (markerDisplayed){
+            case "temperatureDisplayed": toggleTemperatureMarkers();break;
+            case "smokeDisplayed":toggleSmokeMarkers();break;
+            case "humidityDisplayed":toggleHumidityMarkers();break;
+        }
+
+    }
+
+    /**
+     * update the display of heatMap from Visualization Library
+     */
+    function updateHeatMapDisplay(){
+        if(heatMap.displayed=='yes'){
+            toggleHeatmap();
+            toggleHeatmap();
+        }
+    }
+
 
 </script>
 
 <script async defer title="Google_Map_API"
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB3R7bzKOXmqJWdiKgbhtfa_DMQQ3PL1Oo&libraries=visualization&callback=initialize">
 </script>
+
+<script title="Ajax_Library"
+        src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">
+
+</script>
+
+<meta name="csrf-token" content="{{ csrf_token() }}" />
 
 </body>
 </html>

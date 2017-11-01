@@ -18,10 +18,23 @@ class CapteurController extends Controller
     //
     public function index(){
 
-        $Capteurs_Join_Events_id= DB::table('T_CAPTEURS')->join('T_EVENTS', 'T_EVENTS.ID_CAPTEUR' , '=', 'T_CAPTEURS.id')->get();
-
-        // dd($eventjoincapteur);
-
+        $Capteurs_Join_Events_id= Capteur::all();
         return view("welcome" , ["Capteurs_Join_Events_id" => $Capteurs_Join_Events_id ]);
+    }
+
+    public function updateMarkers(Request $request){
+
+        $result = Event::where("ID_CAPTEUR", "=", $request->message)->get()->last();
+
+        $response = array(
+            'status' => 'success',
+            'TEMPERATURE' => $result["TEMPERATURE"],
+            'ID_CAPTEUR' => $result["ID_CAPTEUR"],
+            'HUMIDITE' => $result["HUMIDITE"],
+            'SMOKE' => $result["SMOKE"],
+            'LUMINOSITE' => $result["LUMINOSITE"],
+        );
+        return response()->json($response);
+
     }
 }
