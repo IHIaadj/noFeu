@@ -165,12 +165,16 @@
 
         marker.addListener('click',function() {
 
+            var smokeString='';
+            if(this.capteur.smoke==1) smokeString="OUI"; else smokeString="NON";
+
             var infoWindowMarker =  new google.maps.InfoWindow({
                 content: 'ID : '+this.capteur.id+
                 '<br>Region : '+this.capteur.region+
-                '<br>Temperature : '+this.capteur.temperature+
-                '<br>Humidité : '+this.capteur.humidite+
-                '<br>Fumée : '+this.capteur.smoke
+                '<br>Temperature : '+this.capteur.temperature+' °C'+
+                '<br>Humidité : '+this.capteur.humidite+' %'+
+                '<br>Fumée : '+smokeString+
+                '<br>Position : '+this.position
             });
 
             infoWindowMarker.open(map,this);
