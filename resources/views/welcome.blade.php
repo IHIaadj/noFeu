@@ -43,18 +43,20 @@
 <div id="map" style="float: left;"></div>
 <div id="voletMenu" style="float: right;">Volet Menu</div>
 <div id="floating-panel">
+    <button onclick="updateMarkers()">U</button>
     <button onclick="toggleHeatmap()">Toggle Heatmap</button>
     <button onclick="toggleSmokeMarkers()">Toggle Fire</button>
     <button onclick="toggleTemperatureMarkers()">Toggle Temperature</button>
     <button onclick="toggleHumidityMarkers()">Toggle Humidity</button>
     <button onclick="enableMarkers()">Markers</button>
 </div>
+
 <script title="Variables_Constants">
 
     //table issue de la BDD où chaque ligne représente un capteur et son état actuel
     var capteursTable = {!! json_encode($Capteurs_Join_Events_id) !!};
 
-    var iconsUrls={
+    var markersIconsUrls={
         blue:"{{asset('storage/data/circle-icons/circle-blue.png')}}",
         green:"{{asset('storage/data/circle-icons/circle-green.png')}}",
         grey:"{{asset('storage/data/circle-icons/circle-grey.png')}}",
@@ -62,11 +64,15 @@
         orange:"{{asset('storage/data/circle-icons/circle-orange.png')}}"
     };
 
+    var markerClusIconsUrl="{{asset('storage/data/clus-icons/m')}}";
+
     var heatMap;
     var heatMapData=[];
     var markersTable=[];
     var map;
-    const UPDATE_INTERVAL=3000; //3 secs
+    const UPDATE_INTERVAL=300000; //5 min
+    var markerCluster;
+    var locationsClus=[];
 
 </script>
 
@@ -76,7 +82,9 @@
     {
         createMap();
         createMarkers();
+        createMarkerClus();
         createHeatMap();
+
     }
 
 </script>
@@ -102,6 +110,8 @@
                 humidite :0,
                 smoke : 0
             }
+
+
         });
 
         marker.addListener('click',function() {
@@ -122,9 +132,7 @@
 
         });
 
-        //un genre de hachage
-        markersTable[marker.capteur.id]=marker;
-
+        markersTable.push(marker);
         markersTable.display='';
 
     }
@@ -137,10 +145,12 @@
      */
     function  updateMarker(data) {
 
-        markersTable[data.ID_CAPTEUR].capteur.temperature = data.TEMPERATURE;
-        markersTable[data.ID_CAPTEUR].capteur.humidite = data.HUMIDITE;
-        markersTable[data.ID_CAPTEUR].capteur.smoke = data.SMOKE;
-        markersTable[data.ID_CAPTEUR].capteur.luminosite = data.LUMINOSITE;
+        markersTable.find(x=> x.capteur.id === data.ID_CAPTEUR).capteur.temperature = data.TEMPERATURE;
+        markersTable.find(x=> x.capteur.id === data.ID_CAPTEUR).capteur.humidite = data.HUMIDITE;
+        markersTable.find(x=> x.capteur.id === data.ID_CAPTEUR).capteur.smoke = data.SMOKE;
+        markersTable.find(x=> x.capteur.id === data.ID_CAPTEUR).capteur.luminosite = data.LUMINOSITE;
+
+
     }
 
 </script>
@@ -176,6 +186,7 @@
             //création d'un capteur
             createMarker(capteur);
         });
+
     }
 
 
@@ -198,7 +209,6 @@
                 data : {_token: CSRF_TOKEN, message:capteurID},
 
                 success : function(data){
-
                     console.log(data);
                     updateMarker(data);
                 },
@@ -212,6 +222,58 @@
         }
 
     }
+
+</script>
+
+<script title="MarkerClustrer_Functions">
+
+    /**
+     * Creates a markerClestrer to displaying the markersTable markers (in a compact way)
+     * MarkersTable must be created before calling the function
+     */
+    function createMarkerClus(){
+        markerCluster = new MarkerClusterer(map, markersTable, {
+            imagePath: markerClusIconsUrl});
+        //setting the calculator based on markers on fire number
+        markerCluster.setCalculator(function(markers, numStyles) {
+            var nbrMarkersOnFire=0,nbrMarkers=0;
+
+            markers.forEach(function (marker) {
+               if(marker.capteur.smoke==1) nbrMarkersOnFire++;
+               nbrMarkers++;
+            });
+
+            //setting the index of the icon to choose (1==blue,2==yellow,3==red)
+            var indexIcon =0;
+            switch (nbrMarkersOnFire)
+            {
+                case 0 : indexIcon=1; break;
+                case 1 : indexIcon=2; break;
+                default: indexIcon=3; break;
+            }
+
+            return {
+                text: nbrMarkersOnFire+'/'+nbrMarkers,
+                index: indexIcon
+            };
+        });
+    }
+
+    /**
+     * Clear markers from the markerClusterer
+     */
+    function clearMarkerClus(){
+        markerCluster.clearMarkers();
+    }
+
+    /**
+     * update the markers in the markerClusterer
+     */
+    function updateMarkerClus(){
+        clearMarkerClus();
+        createMarkerClus();
+    }
+
 
 </script>
 
@@ -257,7 +319,7 @@
 
         //iterating the MVCArray and changing the weight according to the markersTable Temperature
         heatMapData.b.forEach(function (heatPoint) {
-            heatPoint.weight=heatPointTemperature(markersTable[heatPoint.id].capteur.temperature);
+            heatPoint.weight=heatPointTemperature(markersTable.find(x=> x.capteur.id === heatPoint.id).capteur.temperature);
         });
 
         //A local function used to determine the weight of HeatPoints
@@ -281,10 +343,11 @@
     {
         markersTable.forEach(function (marker) {
             marker.label=marker.capteur.humidite+' %';
-            marker.icon.url=iconsUrls.blue;
-            marker.setMap(map);
+            marker.icon.url=markersIconsUrls.blue;
+
         });
 
+        updateMarkerClus();
         markersTable.display="humidityDisplayed";
     }
 
@@ -295,12 +358,13 @@
     {
         markersTable.forEach(function (marker) {
 
-            if(marker.capteur.smoke == 1) marker.icon.url=iconsUrls.red;
-            else marker.icon.url=iconsUrls.grey;
+            if(marker.capteur.smoke == 1) marker.icon.url=markersIconsUrls.red;
+            else marker.icon.url=markersIconsUrls.grey;
             marker.label=marker.capteur.temperature+" °C";
-            marker.setMap(map);
+
         });
 
+        updateMarkerClus();
         markersTable.display="smokeDisplayed";
 
     }
@@ -312,13 +376,14 @@
     {
         markersTable.forEach(function (marker) {
             marker.label=marker.capteur.temperature+" °C";
-            if(marker.capteur.temperature>60) marker.icon.url=iconsUrls.red;
-            else if(marker.capteur.temperature>45) marker.icon.url=iconsUrls.orange;
-            else marker.icon.url=iconsUrls.green;
+            if(marker.capteur.temperature>60) marker.icon.url=markersIconsUrls.red;
+            else if(marker.capteur.temperature>45) marker.icon.url=markersIconsUrls.orange;
+            else marker.icon.url=markersIconsUrls.green;
 
-            marker.setMap(map);
+
         });
 
+        updateMarkerClus();
         markersTable.display="temperatureDisplayed";
     }
 
@@ -327,9 +392,8 @@
      * Enable/Disable Markers on the map
      */
     function enableMarkers(){
-        markersTable.forEach(function (marker) {
-            marker.setMap(marker.getMap() ? null : map);
-        });
+        markerCluster.setMap(null);
+        console.log(markerCluster.getMap());
         markersTable.display='';
     }
 
@@ -348,7 +412,7 @@
     function createDefaultIcon()
     {
         return  {
-            url: iconsUrls.grey,
+            url: markersIconsUrls.grey,
             size: new google.maps.Size(36, 36),
             origin: new google.maps.Point(0, 0),
             anchor: new google.maps.Point(18, 18)
@@ -384,6 +448,10 @@
 
 </script>
 
+
+<script src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js">
+</script>
+
 <script async defer title="Google_Map_API"
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB3R7bzKOXmqJWdiKgbhtfa_DMQQ3PL1Oo&libraries=visualization&callback=initialize">
 </script>
@@ -392,6 +460,7 @@
         src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">
 
 </script>
+
 
 <meta name="csrf-token" content="{{ csrf_token() }}" />
 
